@@ -1,0 +1,207 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model User {
+  id           Int    @id @default(autoincrement())
+  firstName    String
+  lastName     String
+  emailAddress String @unique
+  password     String
+  phoneNumber  String
+  gender       String
+
+  accountStatus AccountStatus @default(ACTIVE)
+
+  resetToken       String?
+  resetTokenExpiry DateTime?
+
+  roleId Int
+  role   Role @relation(fields: [roleId], references: [id])
+
+  patientProfile PatientProfile?
+  doctorProfile  DoctorProfile?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  reviewedDoctorRequests DoctorRegistrationRequest[] @relation("ReviewedBy")
+
+  @@map("users")
+}
+
+model Role {
+  id   Int    @id @default(autoincrement())
+  name String @unique
+
+  users User[]
+
+  @@map("roles")
+}
+
+model DoctorProfile {
+  id Int @id @default(autoincrement())
+
+  userId Int  @unique
+  user   User @relation(fields: [userId], references: [id])
+
+  specialtyId Int
+  specialty   Specialty @relation(fields: [specialtyId], references: [id])
+
+  availability       Availability  @default(UNAVAILABLE)
+  verificationStatus RequestStatus @default(PENDING)
+  homeAddress        String?
+
+  lastActiveAt DateTime?
+
+  yearsOfPractice Int
+  placeOfPractice String
+
+  verification DoctorVerification?
+
+  bookings Booking[] @relation("DoctorBookings")
+
+  registrationRequests DoctorRegistrationRequest[] @relation("DoctorRequest")
+
+  @@map("doctor_profiles")
+}
+
+model PatientProfile {
+  id Int @id @default(autoincrement())
+
+  userId Int  @unique
+  user   User @relation(fields: [userId], references: [id])
+
+  dateOfBirth DateTime
+
+  occupation  String
+  nationality String
+  address     String
+
+  bookings Booking[]
+
+  @@map("patients")
+}
+
+model DoctorVerification {
+  id Int @id @default(autoincrement())
+
+  doctorId Int           @unique
+  doctor   DoctorProfile @relation(fields: [doctorId], references: [id])
+
+  bvn                  String?
+  medicalLicenseNumber String?
+  homeAddress          String
+
+  status RequestStatus @default(PENDING)
+
+  documents VerificationDocument[]
+
+  adminRemark String?
+
+  submittedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("doctor_verifications")
+}
+
+model VerificationDocument {
+  id Int @id @default(autoincrement())
+
+  verificationId Int
+  verification   DoctorVerification @relation(fields: [verificationId], references: [id])
+
+  documentType DocumentType
+  fileUrl      String
+
+  uploadedAt DateTime @default(now())
+
+  @@map("verification_documents")
+}
+
+model DoctorRegistrationRequest {
+  id Int @id @default(autoincrement())
+
+  doctorId Int
+  doctor   DoctorProfile @relation("DoctorRequest", fields: [doctorId], references: [id])
+
+  status RequestStatus @default(PENDING)
+
+  submittedAt DateTime @default(now())
+
+  reviewedAt DateTime?
+
+  reviewedById Int?
+  reviewedBy   User? @relation("ReviewedBy", fields: [reviewedById], references: [id])
+
+  @@map("doctor_registration_requests")
+}
+
+model Specialty {
+  id   Int    @id @default(autoincrement())
+  name String @unique
+
+  doctors DoctorProfile[]
+
+  @@map("specialties")
+}
+
+model Booking {
+  id Int @id @default(autoincrement())
+
+  patientId Int
+  doctorId  Int
+
+  patient PatientProfile @relation(fields: [patientId], references: [id])
+  doctor  DoctorProfile  @relation("DoctorBookings", fields: [doctorId], references: [id])
+
+  appointmentAt DateTime
+
+  status BookingStatus
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([doctorId, appointmentAt])
+  @@map("bookings")
+}
+
+enum DocumentType {
+  ID_DOCUMENT
+  MEDICAL_LICENSE
+  PROOF_OF_ADDRESS
+}
+
+enum AccountStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum Availability {
+  AVAILABLE
+  UNAVAILABLE
+}
+
+enum BookingStatus {
+  PENDING
+  APPROVED
+  CANCELLED
+  COMPLETED
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
